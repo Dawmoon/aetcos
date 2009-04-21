@@ -1,0 +1,98 @@
+/////////////////////////////////////////////////////////////////////////////
+// 名称: MPC5534.lcf
+// 版本: 1.0  Copyright (c) 2008 BYAE, All Rights Reserved
+// 描述: MPC5534 存储器配置文件(正式版本)
+// 编译: CodeWarrior for MPC55XX v2.2 
+// 修改历史： 
+// 版本	作者	  日期		描述 
+// ----	-------	----------	---------------------------
+// 1.0	黄国钧	2008-11-26 	修改原始文件,将internal_ram放在最前面,添加.varClb段
+//							存放标定数据并固定地址
+//
+/////////////////////////////////////////////////////////////////////////////
+
+//存储器划分
+MEMORY
+{
+    resetvector:        org = 0x00000000,   len = 0x00000008
+    init:               org = 0x00000020,   len = 0x00000FE0
+    exception_handlers: org = 0x00001000,   len = 0x00001000
+    internal_flash:     org = 0x00002000,   len = 0x000FD000
+    
+    external_ram:     	org = 0x20000000,   len = 0x00080000
+    
+    internal_ram:       org = 0x40000000,   len = 0x00008000
+    heap  :             org = 0x40008000,   len = 0x00004000 
+    stack :             org = 0x4000C000,   len = 0x00004000 
+}
+
+//This will ensure the rchw and reset vector are not stripped by the linker
+FORCEACTIVE { "bam_rchw" "bam_resetvector" }
+
+//设置数据段分配方式
+SECTIONS
+{
+    .__bam_bootarea LOAD (0x00000000): {} > resetvector
+
+    GROUP : {
+      .init LOAD (0x00000020) : {}
+      .init_vle (VLECODE)  LOAD (_e_init) : {
+        *(.init)
+        *(.init_vle)
+      }
+    } > init
+
+    .__exception_handlers (VLECODE) LOAD (0x00001000): {} > exception_handlers 
+
+    GROUP  : {
+        .text : {} 
+        .text_vle (VLECODE) ALIGN(0x1000): {
+             *(.text)
+             *(.text_vle)
+         }
+        .rodata (CONST) : {
+            *(.rdata)
+            *(.rodata)
+        }
+        .ctors : {}
+        .dtors : {}
+        extab : {}
+        extabindex : {}        
+    } > internal_flash
+    
+    .mapFlash	ALIGN(0x40000):{} > internal_flash
+    .mapRam  ALIGN(0x40000): {} > external_ram
+             
+    GROUP : {
+       .__uninitialized_intc_handlertable ALIGN(0x10) : {}  
+       //.varClb ALIGN(0x1000): {} 			//标定变量所在地址,固定     
+       .varClb : {}             //标定变量所在地址,固定
+       .sdata  : {}
+       .sbss   : {}
+       .sdata2 : {}
+       .sbss2  : {}
+       .data   : {}
+       .bss    : {}
+       //.bootLoader (VLECODE) : {}          
+    } > internal_ram
+}
+
+
+//CodeWarrior编译器的地址分配
+_stack_addr = ADDR(stack)+SIZEOF(stack);
+_stack_end  = ADDR(stack);
+_heap_addr  = ADDR(heap);
+_heap_end   = ADDR(heap)+SIZEOF(heap);
+
+//Exceptions Handlers Location (used in Exceptions.c for IVPR initialization) */
+EXCEPTION_HANDLERS = ADDR(exception_handlers);
+
+
+// L2 SRAM Location (used for L2 SRAM initialization) 
+L2SRAM_LOCATION = 0x40000000;
+
+//片外RAM起始地址,MCU初始化使可能会需要
+EXT_RAM_BASE		= ADDR(external_ram);
+
+//标定变量的长度
+VAR_LEN		= SIZEOF(.varClb);

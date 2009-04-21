@@ -1,0 +1,104 @@
+// MPC5534 lcf file for  (debug RAM version)
+
+/*
+MEMORY
+{
+    external_ram:     	org = 0x20000000,   len = 0x00080000
+    
+    internal_ram:       org = 0x40000000,   len = 0x00002000
+    init:               org = 0x40002000,   len = 0x00001000
+    exception_handlers: org = 0x40003000,   len = 0x00001000
+    pseudo_rom:         org = 0x40004000,   len = 0x00009000
+    heap  :             org = 0x4000D000,   len = 0x00001000 
+    stack :             org = 0x4000E000,   len = 0x00001000 
+  
+}
+*/
+
+MEMORY
+{
+    external_ram:     	org = 0x20000000,   len = 0x00080000
+    
+    pseudo_rom:         org = 0x40000000,   len = 0x00009000
+    init:               org = 0x40009000,   len = 0x00001000
+    exception_handlers: org = 0x4000A000,   len = 0x00001000
+    internal_ram:       org = 0x4000B000,   len = 0x00002000
+    heap  :             org = 0x4000D000,   len = 0x00001000 /* Heap start location */
+    stack :             org = 0x4000E000,   len = 0x00001000 /* Start location for Stack */
+}
+
+SECTIONS
+{
+    GROUP : {
+      .init : {}
+      .init_vle (VLECODE) : {
+        *(.init)
+        *(.init_vle)
+      }   
+    } > init
+
+    .__exception_handlers (VLECODE): {} > exception_handlers
+    
+    GROUP : {
+    	//.intc_hw_branch_table ALIGN (2048) : {}
+    	//.intc_sw_isr_vector_table ALIGN (2048) : {}  For INTC in SW Vector Mode 
+        
+        .text (TEXT) ALIGN(0x1000) : {}
+        .text_vle (VLECODE) ALIGN(0x1000): {
+             *(.text)
+             *(.text_vle)
+         }
+        .rodata (CONST) : {
+            *(.rdata)
+            *(.rodata)
+        }
+        //测试版本将MAP放在内部RAM中
+        //.mapFlash  : {} > external_ram
+        
+        .ctors : {}
+        .dtors : {}
+        extab : {}
+        extabindex : {}
+    } > pseudo_rom
+    
+    .calData  ALIGN(0x1000): {} > internal_ram 
+	//*
+	GROUP : {    
+       .__uninitialized_intc_handlertable ALIGN(0x10) : {}
+       //.calData: {}
+       .sdata  : {}
+       .sbss   : {}
+       .sdata2 : {}
+       .sbss2  : {}
+       .data   : {}
+       .bss    : {}
+    } > internal_ram
+    //*/
+    
+    /*
+    GROUP : {    
+       .__initialized_intc_handlertable ALIGN (2048) : {}
+       .data   : {}
+       .sdata  : {}
+       .sbss   : {}
+       .sdata2 : {}
+       .sbss2  : {}
+       .bss    : {}
+    } > internal_ram
+    */
+       
+    
+    .mapFlash  : {} > external_ram
+    
+}
+
+// Freescale CodeWarrior compiler address designations 
+
+_stack_addr = ADDR(stack)+SIZEOF(stack);
+_stack_end  = ADDR(stack);
+_heap_addr  = ADDR(heap);
+_heap_end   = ADDR(heap)+SIZEOF(heap);
+
+// Exceptions Handlers Location (used in Exceptions.c for IVPR initialization)
+
+EXCEPTION_HANDLERS = ADDR(exception_handlers);

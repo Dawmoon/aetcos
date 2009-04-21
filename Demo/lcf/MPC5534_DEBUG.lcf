@@ -1,0 +1,105 @@
+/////////////////////////////////////////////////////////////////////////////
+// 名称: MPC5534_DEBUG.lcf
+// 版本: 1.0  Copyright (c) 2008 BYAE, All Rights Reserved
+// 描述: MPC5534 存储器配置文件(RAM调试版本),注意没有mapRam
+// 编译: CodeWarrior for MPC55XX v2.2 
+// 修改历史： 
+// 版本	作者	  日期		描述 
+// ----	-------	----------	---------------------------
+// 1.0	黄国钧	2008-11-26 	修改原始文件,将internal_ram放在最前面,添加.varClb段
+//							存放标定数据并固定地址
+//
+/////////////////////////////////////////////////////////////////////////////
+BIN_FILE_TYPE (MULTIPLE_BIN_FILES)
+//MAX_BIN_GAP(0x20000000)
+
+//划分存储器地址
+MEMORY
+{
+    external_ram:     	org = 0x20000000,   len = 0x00100000    //实际只有512K
+    
+    internal_ram:       org = 0x40000000,   len = 0x00004000
+    init:               org = 0x40004000,   len = 0x00001000
+    exception_handlers: org = 0x40005000,   len = 0x00001000	//中断函数所在地址
+    pseudo_rom:         org = 0x40006000,   len = 0x00008000
+    heap  :             org = 0x4000E000,   len = 0x00001000 
+    stack :             org = 0x4000F000,   len = 0x00001000 
+  
+}
+
+
+/* //原始地址分配
+MEMORY
+{
+    pseudo_rom:         org = 0x40000000,   len = 0x00009000
+    init:               org = 0x40009000,   len = 0x00001000
+    exception_handlers: org = 0x4000A000,   len = 0x00001000	//中断函数所在地址
+    internal_ram:       org = 0x4000B000,   len = 0x00002000
+    heap  :             org = 0x4000D000,   len = 0x00001000 
+    stack :             org = 0x4000E000,   len = 0x00001000 
+}
+*/
+
+//设置数据段地址分配方式
+SECTIONS
+{
+    GROUP : {    
+       .__uninitialized_intc_handlertable ALIGN(0x10) : {}
+       .bootLoader (VLECODE): {}
+       .varClb : {}                 //标定变量所在地址,固定 
+       .sdata  : {}
+       .sbss   : {}
+       .sdata2 : {}
+       .sbss2  : {}
+       .data   : {}
+       .bss    : {}
+    } > internal_ram
+    
+    GROUP : {
+      .init : {}
+      .init_vle (VLECODE) : {
+        *(.init)
+        *(.init_vle)
+      }          
+    } > init
+
+    .__exception_handlers (VLECODE): {} > exception_handlers
+
+    GROUP : {
+        .text (TEXT) ALIGN(0x1000) : {}
+        .text_vle (VLECODE) ALIGN(0x1000): {
+             *(.text)
+             *(.text_vle)
+         }
+        .ctors : {}
+        .dtors : {}
+        extab : {}
+        extabindex : {}
+    } > pseudo_rom
+    
+    GROUP :
+    {
+        .mapFlash  ALIGN(0x1000): {}        
+        .rodata (CONST) : {
+            *(.rdata)
+            *(.rodata)
+         }
+        
+    } > external_ram 	//外扩了RAM后地址与标定版本一致
+    // >pseudo_rom		//没有外扩RAM则将所有内容放在内部RAM中    
+}//数据段划分完毕
+
+//CodeWarrior编译器的地址分配
+_stack_addr = ADDR(stack)+SIZEOF(stack);
+_stack_end  = ADDR(stack);
+_heap_addr  = ADDR(heap);
+_heap_end   = ADDR(heap)+SIZEOF(heap);
+
+// Exceptions Handlers Location (used in Exceptions.c for IVPR initialization) 
+EXCEPTION_HANDLERS	= ADDR(exception_handlers);
+
+//片外RAM起始地址,MCU初始化使可能会需要
+EXT_RAM_BASE		= ADDR(external_ram);
+
+//标定变量的长度
+VAR_LEN		= SIZEOF(.varClb);	
