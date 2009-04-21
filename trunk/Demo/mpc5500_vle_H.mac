@@ -1,0 +1,261 @@
+quiet on    ; Make sure memory window refresh is off
+
+REM This script configure MPC5500 devices similar to the BAM operation.
+REM Memory is configured to be VLE space in the MMU.
+
+REM    Update 13 June 2007 removed support for pre-production devices 
+REM                         Change PBRIDGE A to Guarded for future compatibility
+REM                         SRAM init needs to be modified for size.
+REM                          64K, 80K, 128K, &192K examples shown. 64K by default
+
+REM This script also configures the MMU error vectors, IVOR13 and IVOR14, to
+REM point into valid memory space. If the vectors do not point to valid memory
+REM space and the windows are refreshed which pointing to illegal memory (such
+REM that a double bus fault occurs when the bus error vector itself is invalid),
+REM the device will enter checkstop state and will reset the next time code is
+REM run. The user should make sure that the IVPR:IVOR13 and IVPR:IVOR14 always
+REM point to valid memory.
+
+reset
+
+REM Setup MMU for for Periph B Modules
+REM Base address = $FFF0_0000
+REM TLB0, 1 MByte Memory Space, Guarded, Don't Cache, All Access
+spr 624t $10000000 ; MAS0
+spr 625t $C0000500 ; MAS1
+spr 626t $FFF0002A ; MAS2
+spr 627t $FFF0003F ; MAS3
+execute_opcode $7C0007A4 ; tlbwe
+
+REM Set up MMU for Internal SRAM
+REM Base address = $4000_0000
+REM TLB3, 256 KByte Memory Space, Not Guarded, Don't Cache, All Access
+spr 624t $10030000 ; MAS0
+spr 625t $C0000400 ; MAS1
+spr 626t $40000028 ; MAS2
+spr 627t $4000003F ; MAS3
+execute_opcode $7C0007A4 ; tlbwe
+
+REM Set up MMU for Periph A Modules
+REM Base address = $C3F0_0000
+REM TLB4, 1 MByte Memory Space, Guarded, Don't Cache, All Access
+spr 624t $10040000 ; MAS0
+spr 625t $C0000500 ; MAS1
+spr 626t $C3F0002A ; MAS2
+spr 627t $C3F0003F ; MAS3
+execute_opcode $7C0007A4 ; tlbwe
+
+rem Set up the pins
+rem Address bus PCR 4 - 27 43
+rem configure address bus pins
+mm.l $c3f90048 $04400440
+mm.l $c3f9004c $04400440
+mm.l $c3f90050 $04400440
+mm.l $c3f90054 $04400440
+mm.l $c3f90058 $04400440
+mm.l $c3f9005c $04400440
+mm.l $c3f90060 $04400440
+mm.l $c3f90064 $04400440
+mm.l $c3f90068 $04400440
+mm.l $c3f9006c $04400440
+mm.l $c3f90070 $04400440
+mm.l $c3f90074 $04400440
+
+rem Data bus PCR 28-59
+rem configure data bus pins
+mm.l $c3f90078 $04400440
+mm.l $c3f9007c $04400440
+mm.l $c3f90080 $04400440
+mm.l $c3f90084 $04400440
+mm.l $c3f90088 $04400440
+mm.l $c3f9008c $04400440
+mm.l $c3f90090 $04400440
+mm.l $c3f90094 $04400440
+rem These next 8 are not required for 16-bit address bus.
+mm.l $c3f90098 $04400440
+mm.l $c3f9009c $04400440
+mm.l $c3f900a0 $04400440
+mm.l $c3f900a4 $04400440
+mm.l $c3f900a8 $04400440
+mm.l $c3f900ac $04400440
+mm.l $c3f900b0 $04400440
+mm.l $c3f900b4 $04400440
+
+rem config minimum bus control pins
+rem RD/WR  & BDIP PCR 62/63
+mm.l $c3f900bc $04400440
+
+rem WE[0-4] PCR 64-67
+mm.l $c3f900c0 $04430443
+mm.l $c3f900c4 $04430443
+
+rem OE & TS
+mm.l $c3f900c8 $04430443
+
+rem configure the chip selects
+rem CS[0-3]
+mm.l $c3f90040 $04430443
+mm.l $c3f90044 $04430443
+
+REM Set up Memory Controller CS0 @ $3ff8_0000
+mm.l $c3f84010 $20000821
+mm.l $c3f84014 $fff800F0
+
+REM Set up Memory Controller CS0 @ $3ff8_0000 - 16-bit Access
+REM mm.l $c3f84010 $20000821
+REM mm.l $c3f84014 $fff800F0
+
+rem Set up Memory Controller CS1 @ $2000_0000
+mm.l $c3f84018 $20000002
+mm.l $c3f8401c $fff800F0
+
+rem CLKOUT
+mm.w $c3f9020a $02c0
+
+REM Set up MMU for External Memory
+REM Base address = $2000_0000
+REM TLB1, 1 MByte Memory Space, Not Guarded, Cachable, All Access
+spr 624t $10020000 ; MAS0
+spr 625t $C0000500 ; MAS1
+spr 626t $20000020 ; MAS2
+spr 627t $2000003F ; MAS3
+execute_opcode $7C0007A4 ; tlbwe
+
+REM Set up MMU to put internal Flash at 0...
+REM Virtual address 0x0 -> Physical address = $0000_0000
+REM TLB1, 16 MByte Memory Space, Not Guarded, Cachable, All Access
+spr 624t $10010000 ; MAS0
+spr 625t $C0000500 ; MAS1
+spr 626t $00000020 ; MAS2
+spr 627t $0000003F ; MAS3 
+execute_opcode $7C0007A4 ; tlbwe
+
+REM Set up MMU for External Memory - SRAM
+REM Base address = $2000_0000
+REM TLB5, 4 MByte Memory Space, Not Guarded, Cachable, All Access
+spr 624t $10050000 ; MAS0
+spr 625t $C0000500 ; MAS1
+spr 626t $20000020 ; MAS2
+spr 627t $2000003F ; MAS3
+execute_opcode $7C0007A4 ; tlbwe
+
+spr 63t $40000000    ; IVPR points to valid memory space
+spr 413t $0   ; MMU data error vector points into valid memory
+spr 414t $0   ; MMU instruction error vector points into valid memory 
+
+meminit.l $40000000 $4000FFFF    ; Initialize 64K L2SRAM 
+REM meminit.l $40000000 $40013FFF    ; Initialize 80K L2SRAM
+REM meminit.l $40000000 $4001FFFF    ; Initialize 128K L2SRAM
+REM meminit.l $40000000 $4002FFFF    ; Initialize 192K L2SRAM
+
+REM
+
+REM This adds the MPC5500 Special Purpose Registers to the SHOWSPR Window.
+
+ClearSPR
+
+REM General Special Purpose Registers
+
+AddSPR XER 1T     :Integer Exception Register
+AddSPR LR 8T      :Link Register
+AddSPR CTR 9T     :Count Register
+
+REM Exception Handling and Control Registers
+
+AddSPR SPRG0 272T  :Special Purpose Register 0 
+AddSPR SPRG1 273T  :Special Purpose Register 1 
+AddSPR SPRG2 274T  :Special Purpose Register 2
+AddSPR SPRG3 275T  :Special Purpose Register 3
+AddSPR SPRG4 276T  :Special Purpose Register 4
+AddSPR SPRG5 277T  :Special Purpose Register 5
+AddSPR SPRG6 278T  :Special Purpose Register 6
+AddSPR SPRG7 279T  :Special Purpose Register 7
+AddSPR USPRG0 256T :User Special Purpose Register
+AddSPR BUCSR 1013T :Branch Unit Control/Status 
+AddSPR SRR0  26T   :Save and Restore 0
+AddSPR SRR1  27T   :Save and Restore 1
+AddSPR CSRR0 58T   :Critical Save and Restore 0
+AddSPR CSRR1 59T   :Critical Save and Restore 1
+AddSPR DSRR0 574T  :Debug Save and Restore 0
+AddSPR DSRR1 575T  :Debug Save and Restore 1
+AddSPR ESR 62T     :Exception Syndrome Register
+AddSPR MCSR 572T   :Machine Check Syndrome Register
+AddSPR DEAR 61T    :Data Exception Address Register
+AddSPR IVPR 63T    :Interrupt Vector Prefetch
+
+AddSPR IVOR0 401T  :Interrupt Vector Offset 0
+AddSPR IVOR1 401T  :Interrupt Vector Offset 1
+AddSPR IVOR2 402T  :Interrupt Vector Offset 2
+AddSPR IVOR3 403T  :Interrupt Vector Offset 3
+AddSPR IVOR4 404T  :Interrupt Vector Offset 4
+AddSPR IVOR5 405T  :Interrupt Vector Offset 5
+AddSPR IVOR6 406T  :Interrupt Vector Offset 6
+AddSPR IVOR7 407T  :Interrupt Vector Offset 7
+AddSPR IVOR8 408T  :Interrupt Vector Offset 8
+AddSPR IVOR10 410T  :Interrupt Vector Offset 10
+AddSPR IVOR11 411T  :Interrupt Vector Offset 11
+AddSPR IVOR12 412T  :Interrupt Vector Offset 12
+AddSPR IVOR13 413T  :Interrupt Vector Offset 13
+AddSPR IVOR14 414T  :Interrupt Vector Offset 14
+AddSPR IVOR15 415T  :Interrupt Vector Offset 15
+AddSPR IVOR32 528T  :Interrupt Vector Offset 32
+AddSPR IVOR33 529T  :Interrupt Vector Offset 33
+AddSPR IVOR34 530T  :Interrupt Vector Offset 34
+
+rem Processor Control Registers
+
+AddSPR PVR 287T     :Processor Version Register
+AddSPR PIR 286T     :Processor ID Register
+AddSPR SVR 1023T    :System Version Register
+AddSPR HID0 1008T   :Hardware Implementation 1
+AddSPR HID1 1009T   :Hardware Implementation 2
+
+REM Timer Registers
+
+AddSPR TBL 268T     :Time Base Lower Register
+AddSPR TBU 269T     :Time Base Upper Register
+AddSPR TCR 340T     :Timer Control Register
+AddSPR TSR 336T     :Timer Status Register
+AddSPR DEC 22T      :Decrementer Register
+AddSPR DECAR 54T    :Decrementer Auto-Reload
+
+REM Debug Registers
+
+AddSPR DBCR0 308T   :Debug Control 0
+AddSPR DBCR1 309T   :Debug Control 1
+AddSPR DBCR2 310T   :Debug Control 2
+AddSPR DBCR3 561T   :Debug Control 3
+AddSPR DBSR 304T    :Debug Status Register
+AddSPR DBCNT 562T   :Debug Control Register
+AddSPR IAC1 312T    :Inst Address Compare 1
+AddSPR IAC2 313T    :Inst Address Compare 2
+AddSPR IAC3 314T    :Inst Address Compare 3
+AddSPR IAC4 315T    :Inst Address Compare 4
+AddSPR DAC1 316T    :Data Address Compare 1
+AddSPR DAC2 317T    :Data Address Compare 2
+
+REM Memory Management Registers
+
+AddSPR MAS0 624T     :MMU Assist Register 1
+AddSPR MAS1 625T     :MMU Assist Register 2
+AddSPR MAS2 626T     :MMU Assist Register 3
+AddSPR MAS3 627T     :MMU Assist Register 4
+AddSPR MAS4 628T     :MMU Assist Register 5
+AddSPR MAS6 630T     :MMU Assist Register 6
+AddSPR PID0 48T      :Process ID Register
+AddSPR MMUCSR0 1012T :MMU Control/Status 0
+AddSPR MMUCFG 1015T  :MMU Configuration
+AddSPR TLB0CFG 688T  :TLB0 Configuration
+AddSPR TLB1CFG 689T  :TLB1 Configuration
+
+REM Cache Registers
+
+AddSPR L1CFG0 515T   :L1 Cache Configuration
+AddSPR L1CSR0 1010T  :L1 Cache Control/Status
+AddSPR L1FINV0 1016T :L1 Cache Flush Control
+
+REM APU Registers
+
+AddSPR SPEFSCR 512T  :SPE APU Status/Control
+
+quiet off     ; turn memory refresh back on
